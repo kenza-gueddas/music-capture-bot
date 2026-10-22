@@ -1,0 +1,477 @@
+{
+  "name": "Music capture bot — Resolve tracks (with AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "id": "2a860a3b-96bc-4ac6-b5ae-7299cb88a83a",
+      "name": "Titles from main workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns a title written for humans into a query Spotify can use.\n// My choice: (Remix), (Live) and (Acoustic) are KEPT, because they're a\n// different version of the song, not noise.\n\n// A group (...) or [...] counts as noise if it contains one of these words.\n// (some are French because a lot of the titles I get are French)\nconst JUNK = ['official', 'officiel', 'officielle', 'video', 'vidéo', 'clip',\n  'lyric', 'lyrics', 'paroles', 'audio', 'visualizer', 'visualiser',\n  'hd', 'hq', '4k', 'remaster', 'remastered', 'mv'];\n\nconst isJunk = inside => {\n  const low = inside.toLowerCase();\n  return JUNK.some(w => new RegExp(`(^|[^a-zà-ÿ])${w}([^a-zà-ÿ]|$)`).test(low));\n};\n\n// What gets sent to Spotify: \"Artist x Artist\" becomes \"Artist Artist\",\n// and the brackets go away (they mess up the search).\nconst forSearch = s => s.replace(/\\s+[x×]\\s+/gi, ' ').replace(/[()\\[\\]]/g, ' ').replace(/\\s+/g, ' ').trim();\n\nreturn $input.all().map(item => {\n  const raw = item.json.rawTitle || '';\n  let t = raw;\n\n  // 1. groups (...) or [...] containing a noise word\n  t = t.replace(/[(\\[]([^)\\]]*)[)\\]]/g, (whole, inside) => (isJunk(inside) ? ' ' : whole));\n\n  // 1b. guest groups: (with X), (feat. X), [ft. X]\n  t = t.replace(/[(\\[]\\s*(?:with|feat|ft|featuring)\\.?\\s[^)\\]]*[)\\]]/gi, ' ');\n\n  // 2. featurings \"ft. X\" / \"feat. X\", up to the next separator or the end\n  t = t.replace(/\\s(?:ft|feat|featuring)\\.?\\s.*?(?=\\s[-–—]\\s|$)/gi, ' ');\n\n  // 3. channel suffixes after a vertical bar: \"| Official Video\"\n  t = t.replace(/\\s[|｜].*$/, ' ');\n\n  // 4. emojis, decorative symbols, quotes\n  t = t.replace(/[\\u{1F000}-\\u{1FAFF}\\u{2600}-\\u{27BF}\\u{FE0F}]/gu, ' ');\n  t = t.replace(/[\"“”«»]/g, ' ');\n\n  // 5. extra spaces\n  t = t.replace(/\\s+/g, ' ').trim();\n    // a dash left alone at the end (after removing (Clip officiel)) has to go too\n  t = t.replace(/\\s+[-–—]\\s*$/, '').trim();\n\n  // 5b. noise words stuck at the END without brackets: \"... MISS KITOKO VISUALIZER\", \"... Official Video\"\n  //     (I always keep at least one word of the track)\n  const END_JUNK = ['official', 'officiel', 'officielle', 'video', 'vidéo', 'clip', 'lyric', 'lyrics', 'paroles',\n    'audio', 'visualizer', 'visualiser', 'hd', 'hq', '4k', 'mv'];\n  const words = t.split(' ');\n  let removed = false;\n  while (words.length > 2) {\n    const last = words[words.length - 1].toLowerCase();\n    const prev = words[words.length - 2];\n    if (prev === '-' || prev === '–' || prev === '—') break;      // never eat the whole track name\n    if (END_JUNK.includes(last) || (removed && last === 'music')) { words.pop(); removed = true; }\n    else break;\n  }\n  t = words.join(' ');\n\n  // 6. split artist and track on a dash WITH spaces around it\n  //    (a dash stuck to the word doesn't count, \"Jay-Z\" has to stay whole)\n  const parts = t.split(/\\s[-–—]\\s/);\n  const hasSeparator = parts.length >= 2;\n  const artist = hasSeparator ? parts[0].trim() : '';\n  const track = hasSeparator ? parts.slice(1).join(' ').trim() : t;\n\n  return {\n    json: {\n      rawTitle: raw,\n      cleanTitle: t,\n      artist,\n      track,\n      hasSeparator,\n      query: forSearch([artist, track].filter(Boolean).join(' ')),\n    },\n  };\n});"
+      },
+      "id": "1f9f5ea9-d7dd-4b62-99aa-84f931c6cc04",
+      "name": "Clean titles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.spotify.com/v1/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.query }}"
+            },
+            {
+              "name": "type",
+              "value": "track"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Titles from main workflow').first().json.accessToken }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5
+            }
+          }
+        }
+      },
+      "id": "c3df0e62-0e2a-4e92-9d1d-86522cc92bc7",
+      "name": "Spotify: search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        560,
+        768
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// MAIN TRAP: Spotify NEVER returns zero results.\n// Even a nonsense search brings back unrelated tracks.\n// So a result only gets accepted if it really matches the YouTube title.\n//\n// The rule: an artist returned by Spotify must appear in the YouTube title,\n// AND the track name must match the video's track too\n// (otherwise any other song by the same artist would get accepted).\n\nconst norm = s => String(s || '')\n  .toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')   // remove accents\n  .replace(/[^a-z0-9]+/g, ' ')                         // punctuation -> space\n  .trim();\n\n// The whole word has to appear, not a piece of it (\"Mo\" must not match \"Moby\")\nconst contains = (hay, needle) => {\n  const n = norm(needle);\n  return n.length > 0 && (' ' + hay + ' ').includes(' ' + n + ' ');\n};\n\n// Spotify name without \"- Remastered 2009\" or \"(feat. X)\"\nconst coreName = name => String(name || '').split(' - ')[0].replace(/\\s*[(\\[].*?[)\\]]/g, '');\n\n// The search returns exactly one result per title, in the same order:\n// the i-th result matches the i-th cleaned title.\nconst sources = $('Clean titles').all();\n\nreturn $input.all().map((res, i) => {\n  const src = sources[i].json;\n  if (!src.rawTitle) return { json: { rawTitle: '', status: 'not found' } };          // private or deleted video\n  if (res.json.error) return { json: { rawTitle: src.rawTitle, status: 'error' } };   // Spotify didn't answer\n  const hay = norm(src.rawTitle);\n\n  // \"MIKL\" (YouTube) vs \"Mik L\" (Spotify): I also compare the names stuck together,\n  // but only on consecutive WHOLE words of the title (never a piece of a word).\n  const tokens = hay.split(' ').filter(Boolean);\n  const joinedMatch = name => {\n    const target = norm(name).replace(/ /g, '');\n    if (target.length < 3) return false;\n    for (let a = 0; a < tokens.length; a++) {\n      let s = '';\n      for (let b = a; b < Math.min(a + 4, tokens.length); b++) {\n        s += tokens[b];\n        if (s === target) return true;\n        if (s.length > target.length) break;\n      }\n    }\n    return false;\n  };\n  const artistMatches = name => contains(hay, name) || joinedMatch(name);\n  const candidates = res.json.tracks?.items || [];\n\n  // The TRACK has to match, not only the artist.\n  // Every word of the Spotify name must be in the video's track, and make up at least\n  // 60% of its words (so \"Home\" doesn't validate \"Take Me Home\").\n  // I try the full name first, then the name without \"(feat. ...)\" or \"- Remastered\".\n  const ytWords = norm(src.track ?? '').split(' ').filter(Boolean);\n  const nameMatches = spotifyName => [norm(spotifyName), norm(coreName(spotifyName))].some(variant => {\n    const words = variant.split(' ').filter(Boolean);\n    return words.length > 0 && ytWords.length > 0\n      && words.every(w => ytWords.includes(w))\n      && words.length / ytWords.length >= 0.6;\n  });\n\n  const match = candidates.find(track =>\n    (track.artists || []).some(a => artistMatches(a.name)) && nameMatches(track.name));\n\n  if (!match) {\n    // keep what Spotify offered, to understand WHY it was refused\n    const candidatesSeen = candidates.slice(0, 10).map(t =>\n      `${(t.artists || []).map(a => a.name).join(', ')} — ${t.name}`);\n    // the first 3 candidates with their URI: this is what the review queue will offer\n    const proposals = candidates.slice(0, 3).map(t => ({\n      uri: t.uri,\n      label: `${(t.artists || []).map(a => a.name).join(', ')} — ${t.name}`,\n    }));\n    return { json: { rawTitle: src.rawTitle, status: 'not found', hasSeparator: src.hasSeparator, candidatesSeen, candidates: proposals } };\n  }\n  return {\n    json: {\n      rawTitle: src.rawTitle,\n      status: 'found',\n      uri: match.uri,\n      name: match.name,\n      artist: match.artists.map(a => a.name).join(', '),\n    },\n  };\n});"
+      },
+      "id": "de8b8040-01bf-416a-b61b-5947d04cdcef",
+      "name": "Check the match",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// SECOND CHANCE: same rules as \"Check the match\", but on what the AI understood from the title.\n// MAIN TRAP: Spotify NEVER returns zero results.\n// Even a nonsense search brings back unrelated tracks.\n// So a result only gets accepted if it really matches the YouTube title.\n//\n// The rule: an artist returned by Spotify must appear in the YouTube title,\n// AND the track name must match the video's track too\n// (otherwise any other song by the same artist would get accepted).\n\nconst norm = s => String(s || '')\n  .toLowerCase()\n  .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')   // remove accents\n  .replace(/[^a-z0-9]+/g, ' ')                         // punctuation -> space\n  .trim();\n\n// The whole word has to appear, not a piece of it (\"Mo\" must not match \"Moby\")\nconst contains = (hay, needle) => {\n  const n = norm(needle);\n  return n.length > 0 && (' ' + hay + ' ').includes(' ' + n + ' ');\n};\n\n// Spotify name without \"- Remastered 2009\" or \"(feat. X)\"\nconst coreName = name => String(name || '').split(' - ')[0].replace(/\\s*[(\\[].*?[)\\]]/g, '');\n\n// The search returns exactly one result per title, in the same order:\n// the i-th result matches the i-th cleaned title.\nconst sources = $('Read the AI answer').all();\n\nreturn $input.all().map((res, i) => {\n  const src = sources[i].json;\n  if (!src.rawTitle) return { json: { rawTitle: '', status: 'not found' } };          // private or deleted video\n  if (res.json.error) return { json: { rawTitle: src.rawTitle, status: 'error' } };   // Spotify didn't answer\n  const hay = norm(src.rawTitle);\n\n  // \"MIKL\" (YouTube) vs \"Mik L\" (Spotify): I also compare the names stuck together,\n  // but only on consecutive WHOLE words of the title (never a piece of a word).\n  const tokens = hay.split(' ').filter(Boolean);\n  const joinedMatch = name => {\n    const target = norm(name).replace(/ /g, '');\n    if (target.length < 3) return false;\n    for (let a = 0; a < tokens.length; a++) {\n      let s = '';\n      for (let b = a; b < Math.min(a + 4, tokens.length); b++) {\n        s += tokens[b];\n        if (s === target) return true;\n        if (s.length > target.length) break;\n      }\n    }\n    return false;\n  };\n  const artistMatches = name => contains(hay, name) || joinedMatch(name);\n  const candidates = res.json.tracks?.items || [];\n\n  // Extra guard for the AI's second chance: every word of the Spotify track name has to be\n  // in the ORIGINAL title too. So the AI can never make me add a song that isn't in the title.\n  const inTitle = n => [norm(n), norm(coreName(n))].some(v => v && v.split(' ').every(w => tokens.includes(w)));\n\n  // The TRACK has to match, not only the artist.\n  // Every word of the Spotify name must be in the video's track, and make up at least\n  // 60% of its words (so \"Home\" doesn't validate \"Take Me Home\").\n  // I try the full name first, then the name without \"(feat. ...)\" or \"- Remastered\".\n  const ytWords = norm(src.track ?? '').split(' ').filter(Boolean);\n  const nameMatches = spotifyName => [norm(spotifyName), norm(coreName(spotifyName))].some(variant => {\n    const words = variant.split(' ').filter(Boolean);\n    return words.length > 0 && ytWords.length > 0\n      && words.every(w => ytWords.includes(w))\n      && words.length / ytWords.length >= 0.6;\n  });\n\n  const match = candidates.find(track =>\n    (track.artists || []).some(a => artistMatches(a.name)) && nameMatches(track.name) && inTitle(track.name));\n\n  if (!match) {\n    // keep what Spotify offered, to understand WHY it was refused\n    const candidatesSeen = candidates.slice(0, 10).map(t =>\n      `${(t.artists || []).map(a => a.name).join(', ')} — ${t.name}`);\n    // the first 3 candidates with their URI: this is what the review queue will offer\n    const proposals = candidates.slice(0, 3).map(t => ({\n      uri: t.uri,\n      label: `${(t.artists || []).map(a => a.name).join(', ')} — ${t.name}`,\n    }));\n    return { json: { rawTitle: src.rawTitle, status: 'not found', hasSeparator: src.hasSeparator, candidatesSeen, candidates: proposals } };\n  }\n  return {\n    json: {\n      rawTitle: src.rawTitle,\n      status: 'found',\n      uri: match.uri,\n      name: match.name,\n      artist: match.artists.map(a => a.name).join(', '),\n    },\n  };\n});"
+      },
+      "id": "9c756caa-f916-41be-a7f8-0336ea22d527",
+      "name": "Check again",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Which titles did my rules refuse? Only those go to the AI:\n// it's cheap, and my rules stay the boss (they check whatever the AI says).\nconst MAX_AI = 10;   // safety cap per run (AI plans have rate limits)\nconst results = $input.all().map(i => i.json);\nconst refused = results\n  .filter(r => r.status === 'not found' && r.rawTitle)\n  .slice(0, MAX_AI)\n  .map(r => ({ rawTitle: r.rawTitle }));\nreturn [{ json: { retry: refused.length > 0, refused } }];"
+      },
+      "id": "a2dea81b-f9e3-4460-89bf-ed89df0d240d",
+      "name": "Plan the retry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "423d6ba7-05bd-4e6b-be87-bf296480d7c2",
+              "leftValue": "={{ $json.retry }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9ec4aed9-377d-43aa-a14a-c04313a1a2d1",
+      "name": "Anything to retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "refused",
+        "options": {}
+      },
+      "id": "c243a794-8749-4eb1-81a8-3e9be74cf45b",
+      "name": "One title per row",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Title: {{ $json.rawTitle }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You read the title of a YouTube video and find the music track in it.\nAnswer ONLY with a JSON object, nothing else: {\"artist\": \"...\", \"track\": \"...\"}\n\nRules:\n- Use only words that are in the title. Never invent anything.\n- Remove noise like Official Video, Visualizer, Lyrics, Clip officiel, HD, emojis.\n- If there are several artists, keep them all in \"artist\".\n- If the title is not one song (a mix, a podcast, a compilation, an interview), answer {\"artist\": \"\", \"track\": \"\"}."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "2bbb7310-eccf-4630-b3aa-de046d8b9a4e",
+      "name": "Ask the AI",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        1968,
+        560
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "b9f074fd-688d-4da6-8074-5ce289232909",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1968,
+        800
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "qm9Eg9Gw4s6CUXuZ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The AI answers with a little JSON: { \"artist\": \"...\", \"track\": \"...\" }.\n// I read it carefully, because an AI doesn't always answer exactly as asked.\nconst titles = $('One title per row').all().map(i => i.json.rawTitle);\nconst forSearch = s => s.replace(/\\s+[x×]\\s+/gi, ' ').replace(/[()\\[\\]]/g, ' ').replace(/\\s+/g, ' ').trim();\n\nreturn $input.all().map((item, i) => {\n  const rawTitle = titles[i];\n  let artist = '', track = '';\n  try {\n    const text = String(item.json.text ?? item.json.output ?? '');\n    const found = text.match(/\\{[\\s\\S]*\\}/);          // the JSON part, even if the AI added ```json or words around it\n    const answer = JSON.parse(found[0]);\n    artist = String(answer.artist || '').trim();\n    track = String(answer.track || '').trim();\n  } catch (e) { /* the AI failed or didn't answer in JSON: both stay empty */ }\n\n  return { json: {\n    rawTitle,\n    artist,\n    track,\n    hasSeparator: !!(artist && track),\n    query: forSearch([artist, track].filter(Boolean).join(' ')) || forSearch(rawTitle),\n  } };\n});"
+      },
+      "id": "102188be-6ebb-43bf-926b-f151954e24aa",
+      "name": "Read the AI answer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.spotify.com/v1/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.query }}"
+            },
+            {
+              "name": "type",
+              "value": "track"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Titles from main workflow').first().json.accessToken }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5
+            }
+          }
+        }
+      },
+      "id": "c5731c01-142d-4a2e-b1cc-d868e7e3f157",
+      "name": "Spotify: search again",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2528,
+        560
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Puts the AI's second chance back into the first results, in the original order.\nconst first = $('Check the match').all().map(i => i.json);\nconst second = new Map($('Check again').all().map(i => [i.json.rawTitle, i.json]));\n\nreturn first.map(r => {\n  const again = r.status === 'not found' ? second.get(r.rawTitle) : null;\n  if (!again) return { json: r };                                    // nothing changed for this title\n  if (again.status === 'found') return { json: { ...again, rescuedByAI: true, aiTried: true } };\n  // still refused: I keep the AI's candidates, they are usually better suggestions for /review\n  return { json: {\n    ...r,\n    aiTried: true,\n    hasSeparator: again.hasSeparator || r.hasSeparator,\n    candidates: again.candidates?.length ? again.candidates : r.candidates,\n    candidatesSeen: again.candidatesSeen ?? r.candidatesSeen,\n  } };\n});"
+      },
+      "id": "f521bb32-8a1f-4a2e-ac81-d098cd41f171",
+      "name": "Final results (after AI)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3088,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nothing was refused: the first results are the final ones.\nreturn $('Check the match').all();"
+      },
+      "id": "e6ccadd8-b906-4efb-ba1e-0402c15e4ea9",
+      "name": "Final results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1680,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Sub-workflow: Resolve tracks\n### Called by the main workflow with **one item per video title** (`rawTitle`) and the person's Spotify `accessToken`. It returns one item per title: `found` (with the track URI) or `not found` (with suggestions for the review queue).\n\n### **1. The rules** (free and fast): **Clean titles**, **Spotify: search**, **Check the match**. Spotify never returns zero results, so a candidate only counts if its artist is in the title AND its track name matches.\n\n\n### **2. The AI, only as a second chance**: **Plan the retry** picks the refused titles (max 10). **Ask the AI** (LLM Chain + Gemini) reads each title and answers `{artist, track}`. Then the same search and the same checks run again (**Check again**), with one extra guard: the track name has to be in the original title. The AI proposes, my rules decide.\n\n\n### **Final results (after AI)** puts everything back in order. If nothing was refused, **Final results** just returns the first answers.",
+        "height": 320,
+        "width": 1008
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -48,
+        48
+      ],
+      "typeVersion": 1,
+      "id": "d7600dca-22b4-4329-afd9-3a838a64435f",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Titles from main workflow": {
+      "main": [
+        [
+          {
+            "node": "Clean titles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean titles": {
+      "main": [
+        [
+          {
+            "node": "Spotify: search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spotify: search": {
+      "main": [
+        [
+          {
+            "node": "Check the match",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the match": {
+      "main": [
+        [
+          {
+            "node": "Plan the retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Plan the retry": {
+      "main": [
+        [
+          {
+            "node": "Anything to retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to retry?": {
+      "main": [
+        [
+          {
+            "node": "One title per row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One title per row": {
+      "main": [
+        [
+          {
+            "node": "Ask the AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask the AI": {
+      "main": [
+        [
+          {
+            "node": "Read the AI answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the AI answer": {
+      "main": [
+        [
+          {
+            "node": "Spotify: search again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spotify: search again": {
+      "main": [
+        [
+          {
+            "node": "Check again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check again": {
+      "main": [
+        [
+          {
+            "node": "Final results (after AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Ask the AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "822a138e-4a1b-41d2-b5fa-5346ac2313d9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c3712db18404be2f900a9f04c8462f663c28080109acb8b8f507b6c699617cda"
+  },
+  "nodeGroups": [],
+  "id": "jCeqWt3zBOeMRihZ",
+  "tags": []
+}
