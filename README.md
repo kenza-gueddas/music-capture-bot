@@ -90,6 +90,9 @@ The matching is the hardest part and every input (YouTube, SoundCloud, screensho
 9. In the Spotify developer dashboard, add this Redirect URI: `<your WEBHOOK_URL>webhook/spotify-callback`.
 10. Publish the sub-workflow, then publish the main workflow.
 
+**What I tested:** I checked that the stack starts with Docker (`docker compose up -d`, Postgres is healthy) and that both workflows import into n8n.
+My live demo runs on my n8n Cloud.
+
 To stop everything: `docker compose down`. My data stays in the Docker volumes.
 
 ### Environment variables
