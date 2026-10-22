@@ -129,6 +129,24 @@ Ideas for later:
 - A web page for the login and a real app on top of the workflow.
 - Voice messages: I could send a voice note like "add Low Tide by Kaya", and the bot would turn the speech into text and add the song.
 
+## Screenshots
+
+Docker stack running (n8n and Postgres):
+
+![docker compose ps](docs/docker-compose-ps.png)
+
+Telegram: summary after sending a YouTube playlist:
+
+![Telegram summary](docs/telegram-summary.png)
+
+Telegram: the review of unsure titles with `/review`:
+
+![Telegram review](docs/telegram-review.png)
+
+n8n Executions tab (green runs):
+
+![n8n executions](docs/executions.png)
+
 ## Project structure
 
 ```
