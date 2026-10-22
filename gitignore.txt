@@ -1,0 +1,15 @@
+# Secrets: never commit these
+.env
+*.env
+!.env.example
+
+# Docker volumes and data
+n8n_data/
+postgres_data/
+*.sqlite
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
