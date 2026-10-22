@@ -80,9 +80,13 @@ The matching is the hardest part and every input (YouTube, SoundCloud, screensho
    docker compose ps
 ```
 5. Open http://localhost:5678 and create your n8n account.
-6. Import the workflows from the `workflows/` folder, with **Import from file**. Import the sub-workflow first, then the main one.
-7. In the main workflow, open the **Resolve tracks** node and select the sub-workflow again, because its id changes after the import.
-8. Create the credentials in n8n (Telegram, Spotify, Gemini, YouTube) with the same names as in the workflows.
+6. Import the workflows from the `workflows/` folder with **Import from file**. Import `music-capture-bot-sub.json` first ("Music capture bot — Resolve tracks (with AI)"), then `music-capture-bot-main.json`.
+7. In the main workflow, open the **Resolve tracks** node and select "Music capture bot — Resolve tracks (with AI)" again, because its id changes after the import.
+8. Create these credentials in n8n and link them to the nodes that use them:
+   - **Telegram account** (Telegram API): the bot token from @BotFather
+   - **Spotify** (Basic Auth): the Client ID as user and the Client Secret as password, used by the "Get Spotify token" and "Exchange code" nodes
+   - **Query Auth account** (Query Auth): the YouTube Data API key, used by "YouTube: playlist" (parameter `key`)
+   - **Google Gemini(PaLM) Api account** (Google Gemini API): the Gemini key, used by the Gemini chat model nodes
 9. In the Spotify developer dashboard, add this Redirect URI: `<your WEBHOOK_URL>webhook/spotify-callback`.
 10. Publish the sub-workflow, then publish the main workflow.
 
