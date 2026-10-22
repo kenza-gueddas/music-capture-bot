@@ -1,0 +1,4282 @@
+{
+  "name": "Music capture bot — screenshot test",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e2bb9b2f-0752-4867-8d5a-059bfe9e2b19",
+              "name": "=text",
+              "value": "={{ $('Who is writing?').first().json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "76698e5f-8790-4123-8792-db5755cf9427",
+              "name": "chatId",
+              "value": "={{ $('Who is writing?').first().json.chatId }}",
+              "type": "string"
+            },
+            {
+              "id": "981ba019-6027-4a31-ad2b-999b0dfae401",
+              "name": "playlistId",
+              "value": "={{ $('Find the user').first().json.playlistId }}",
+              "type": "string"
+            },
+            {
+              "id": "9d67f44c-ed3b-44c8-9531-7797c32a9270",
+              "name": "hasPhoto",
+              "value": "={{ $('Who is writing?').first().json.hasPhoto }}",
+              "type": "boolean"
+            },
+            {
+              "id": "05b3bf37-ba8b-4040-a643-6fa0d3bc0429",
+              "name": "photoId",
+              "value": "={{ $('Who is writing?').first().json.photoId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4995e0b8-1bc6-4db4-9fe4-00ae2a85aa6e",
+      "name": "Config & message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3712,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Figures out if the link is a YouTube video, a YouTube playlist or a SoundCloud track.\n// Video:    youtube.com/watch?v=...  youtu.be/...  youtube.com/shorts/...\n// Playlist: youtube.com/playlist?list=...\n// SoundCloud: soundcloud.com/artist/track  (one track only, not sets/playlists)\nreturn $input.all().map(item => {\n  const text = String(item.json.text || '').trim();\n  let type = 'invalid';\n  let youtubeId = null;\n  let soundcloudUrl = null;\n\n  const playlist = text.match(/youtube\\.com\\/playlist\\?(?:.*&)?list=([\\w-]+)/);\n  // SoundCloud: the 2nd part of the path must be a track name, not \"sets\", \"likes\"...\n  const sc = text.match(/(?:https?:\\/\\/)?(?:m\\.)?soundcloud\\.com\\/([\\w-]+)\\/([\\w-]+)/);\n  const notATrack = ['sets', 'likes', 'tracks', 'albums', 'reposts', 'following', 'followers', 'popular-tracks'];\n  const video = text.match(/(?:youtube\\.com\\/(?:watch\\?(?:.*&)?v=|shorts\\/)|youtu\\.be\\/)([\\w-]{11})/);\n\n  if (playlist) {\n    type = 'playlist';\n    youtubeId = playlist[1];\n  } else if (video) {\n    type = 'video';\n    youtubeId = video[1];\n  } else if (sc && !notATrack.includes(sc[2].toLowerCase())) {\n    type = 'soundcloud';\n    soundcloudUrl = `https://soundcloud.com/${sc[1]}/${sc[2]}`;\n  }\n\n  return { json: { ...item.json, type, youtubeId, soundcloudUrl, isValid: type !== 'invalid' } };\n});"
+      },
+      "id": "53d7f6e1-b51d-4873-81ce-8eb966e92d62",
+      "name": "Parse link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4224,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "1001047a-908c-43a4-8945-dafb3ca98243",
+              "leftValue": "={{ $json.isValid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5da9ccbd-79e3-4372-a1c5-96675da7dbf0",
+      "name": "Valid link?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4464,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "924f8c24-2999-4971-9ea2-5a11a44d2708",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "video",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Video"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "410a2dff-7a16-44b7-96b8-4e86a7ddfb29",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "playlist",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Playlist"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "f1ddc09b-e1f8-4d09-9b61-04f6a47bf1ed",
+                    "leftValue": "={{ $json.type }}",
+                    "rightValue": "soundcloud",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SoundCloud"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6077ddfe-9665-4a02-a97a-59d4d684456f",
+      "name": "Video or playlist?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        4704,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "Send me a YouTube link:\n• a video: youtube.com/watch?v=... or youtu.be/...\n• a playlist: youtube.com/playlist?list=...\n• a SoundCloud track: soundcloud.com/artist/track\n• a screenshot of a playlist\n\nI find the tracks on Spotify and add them to your playlist.\n\n/review: pick the titles I wasn't sure about\n/playlist: change the playlist\n/disconnect: delete my data",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "026b3cdf-3474-4b59-9e44-fcca35fcaa48",
+      "name": "Usage message",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4704,
+        1120
+      ],
+      "webhookId": "94514174-2338-46bc-9bbe-a137a0db8c4e",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.youtube.com/oembed",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "=https://www.youtube.com/watch?v={{ $json.youtubeId }}"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e65db1a3-30f9-4dbb-9901-c1c37ddb7aa6",
+      "name": "YouTube: video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4976,
+        784
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/playlistItems",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "maxResults",
+              "value": "50"
+            },
+            {
+              "name": "playlistId",
+              "value": "={{ $json.youtubeId }}"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "pageToken",
+                    "value": "={{ $response.body.nextPageToken }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.nextPageToken }}",
+              "limitPagesFetched": true,
+              "maxRequests": 2
+            }
+          }
+        }
+      },
+      "id": "7ce5a95f-8cbc-437d-9849-570912b84998",
+      "name": "YouTube: playlist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4976,
+        992
+      ],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "ZyyRpKa2lfwrbekE",
+          "name": "Query Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Two sources, two formats, one output: one { rawTitle } item per video.\n//  - video branch:    oEmbed returns { title: \"...\" }\n//  - playlist branch: the API returns { items: [ { snippet: { title } } ] }, one page of 50 per item\nconst titles = [];\nfor (const res of $input.all()) {\n  const j = res.json;\n\n  if (typeof j.title === 'string') {                       // video (oEmbed)\n    titles.push({ json: { rawTitle: j.title } });\n\n  } else if (Array.isArray(j.items)) {                     // playlist (API)\n    for (const v of j.items) {\n      const title = v.snippet?.title;\n      // a playlist can contain deleted or private videos: skip them\n      if (!title || title === 'Deleted video' || title === 'Private video') continue;\n      titles.push({ json: { rawTitle: title } });\n    }\n  }\n  // otherwise the video or playlist wasn't reachable (the HTTP node returned an error)\n}\n// Nothing came back: keep going anyway so the user still gets an answer.\nreturn titles.length ? titles : [{ json: { rawTitle: '' } }];"
+      },
+      "id": "1c47fc28-110c-46b9-8967-bfe16159cc33",
+      "name": "Extract titles",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5216,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.spotify.com/v1/playlists/{{ $('Config & message').first().json.playlistId }}/items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "50"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Get Spotify token').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {
+          "pagination": {
+            "pagination": {
+              "paginationMode": "responseContainsNextURL",
+              "nextURL": "={{ $response.body.next }}",
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.next }}",
+              "limitPagesFetched": true,
+              "maxRequests": 40
+            }
+          }
+        }
+      },
+      "id": "f9a89ea9-c896-4bf6-8e3c-3f0a1e502ee5",
+      "name": "Read playlist",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6256,
+        880
+      ],
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compares the tracks I found with what's already in the playlist,\n// then builds the summary message.\n\n// \"Read playlist\" brings the playlist page by page (50 tracks per page).\n// Since February 2026 Spotify calls the track \"item\"; \"track\" is the old name.\nconst pages = $input.all().map(i => i.json);\nconst readFailed = pages.length === 0 || pages.some(p => p.error);   // couldn't read it: better to add nothing\nconst existing = new Set(\n  pages\n    .flatMap(p => p.items || [])\n    .map(x => x.item?.uri ?? x.track?.uri)\n    .filter(Boolean)\n);\n\nconst results = $('Resolve tracks').all().map(i => i.json);\nconst cfg = $('Config & message').first().json;\n\nif (readFailed) {\n  return [{ json: { toAdd: [], toReview: [], chatId: cfg.chatId,\n    reply: \"⚠️ I couldn't read your playlist, so I added nothing. It may have been deleted or changed. Send /playlist to choose it again.\" } }];\n}\n\nconst toAdd = [], added = [], already = [], notFound = [];\nconst toReview = [];\nconst reviewSeen = new Set();   // same title twice in one batch\nconst seen = new Set();         // same track twice in one batch\n\nfor (const r of results) {\n  if (r.status !== 'found') {\n    const t = r.rawTitle || '(video not found or private)';\n    notFound.push(r.status === 'error' ? `${t} (Spotify error, retry later)` : t);\n    // Review queue: only titles shaped like \"Artist - Title\" (a mix has nothing to suggest).\n    if (r.status === 'not found' && r.hasSeparator && r.rawTitle && r.candidates?.length && !reviewSeen.has(r.rawTitle)) {\n      reviewSeen.add(r.rawTitle);\n      toReview.push({\n        ref: Math.random().toString(36).slice(2, 10),\n        title: r.rawTitle,\n        candidates: JSON.stringify(r.candidates),\n        status: 'pending',\n        chatId: String(cfg.chatId),\n      });\n    }\n    continue;\n  }\n  const label = `${r.artist} — ${r.name}`;\n  if (existing.has(r.uri) || seen.has(r.uri)) {\n    already.push(label);\n    continue;\n  }\n  seen.add(r.uri);\n  toAdd.push(r.uri);\n  added.push(label);\n}\n\n// Telegram reads this message as Markdown: a _ or * in a title would make the send fail.\nconst esc = s => String(s).replace(/([_*`\\[])/g, '\\\\$1');\n// Telegram limits a message to 4096 characters, so long lists get cut.\nconst list = (items, max = 15) => {\n  if (!items.length) return '';\n  const shown = items.slice(0, max).map(s => '• ' + esc(s));\n  if (items.length > max) shown.push(`… and ${items.length - max} more`);\n  return '\\n' + shown.join('\\n');\n};\nconst rescued = results.filter(r => r.rescuedByAI).length;\nconst aiFailed = results.filter(r => r.aiTried && !r.rescuedByAI).length;\nconst aiNote = (rescued || aiFailed)\n  ? '\\n\\n🤖 AI: ' + [\n      rescued ? `${rescued} title(s) rescued` : '',\n      aiFailed ? `${aiFailed} tried, no match` : '',\n    ].filter(Boolean).join(', ')\n  : '';\n\nconst reply = [\n  `✅ Added: ${added.length}${list(added)}`,\n  `↩️ Already in the playlist: ${already.length}${list(already)}`,\n  `❓ Not found: ${notFound.length}${list(notFound)}`,\n].join('\\n\\n') + (toReview.length\n  ? `\\n\\n🔎 ${toReview.length} refused title(s) with suggestions. Send /review to pick.`\n  : '') + aiNote;\n\nreturn [{ json: { toAdd, reply, chatId: cfg.chatId, toReview } }];"
+      },
+      "id": "120ce262-5c2f-4421-b563-2a3205ad163a",
+      "name": "Prepare additions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6496,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "34240fcb-191d-4465-8234-736978506a9c",
+              "leftValue": "={{ $json.toAdd.length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4e32a289-ce0a-40ec-8665-e61f03a01955",
+      "name": "Anything to add?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        6736,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.spotify.com/v1/playlists/{{ $('Config & message').first().json.playlistId }}/items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Get Spotify token').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ uris: $json.toAdd }) }}",
+        "options": {}
+      },
+      "id": "f609d83a-1fcd-4b6d-8532-f9bb6f7902a1",
+      "name": "Spotify: add",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7216,
+        784
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Prepare additions').first().json.chatId }}",
+        "text": "={{ $('Prepare additions').first().json.reply }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b26f17ce-76ab-4500-a39b-0e7e4a8c342b",
+      "name": "Reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        7504,
+        944
+      ],
+      "executeOnce": true,
+      "webhookId": "12fee85c-ae1d-42ff-98a1-f84926446fee",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "toReview",
+        "options": {}
+      },
+      "id": "56052058-cfcc-4f2a-bbd4-effa0357f3d8",
+      "name": "Split review cases",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        6656,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "review_queue"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "title",
+              "keyValue": "={{ $json.title }}"
+            },
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $json.chatId }}"
+            }
+          ]
+        }
+      },
+      "id": "1c70618f-d14b-47ec-88e4-999d6b4a47dc",
+      "name": "New case?",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        6960,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "review_queue"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": null,
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ref",
+              "displayName": "ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidates",
+              "displayName": "candidates",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "chatId",
+              "displayName": "chatId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "99b3f8fc-6b9a-4457-8f29-57516563807b",
+      "name": "Save case",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        7248,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "review_queue",
+        "columns": {
+          "column": [
+            {
+              "name": "ref"
+            },
+            {
+              "name": "title"
+            },
+            {
+              "name": "candidates"
+            },
+            {
+              "name": "status"
+            },
+            {
+              "name": "chatId"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "id": "2cbea6a3-f704-4bc4-88d2-e6aa826c1fcf",
+      "name": "Create review table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        896,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a9a3fecc-1921-4220-8cb1-bde13e30e6d1",
+              "name": "chatId",
+              "value": "={{ $('Who is writing?').first().json.chatId }}",
+              "type": "string"
+            },
+            {
+              "id": "d3a8e7ec-8a66-4857-9b93-e827800605ee",
+              "name": "notice",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "60b91e25-6c23-4705-91a6-e959bee78b29",
+      "name": "Command chat",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        4080,
+        1968
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// A button click arrives as a \"callback_query\" event.\n// Button format: \"ok|<ref>|<candidate number>\" or \"no|<ref>\".\nconst cb = $('Telegram Trigger').first().json.callback_query;\nconst [tag, ref, idx] = String(cb.data || '').split('|');\nreturn [{ json: {\n  queryId: cb.id,\n  chatId: String(cb.message?.chat?.id ?? cb.from?.id ?? ''),\n  action: tag === 'ok' ? 'pick' : tag === 'no' ? 'skip' : 'other',\n  ref: ref || '',\n  idx: Number(idx) || 0,\n} }];"
+      },
+      "id": "538cda2e-10aa-4697-ae3a-fa84bc61f4e7",
+      "name": "Read the click",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4080,
+        2144
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "callback",
+        "queryId": "={{ $json.queryId }}",
+        "additionalFields": {
+          "text": "Got it"
+        }
+      },
+      "id": "2a8751a5-cbbb-4950-a81c-f0800f72872c",
+      "name": "Answer the click",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4336,
+        2144
+      ],
+      "webhookId": "59fc5452-93e5-4248-8763-471afe8748d5",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "f0ac0946-3ddb-414f-a726-a8988abf7203",
+              "leftValue": "={{ $('Read the click').first().json.action !== 'other' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6d757b05-1768-47b7-af04-9b7ead834d06",
+      "name": "Known action?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        4576,
+        2144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "review_queue"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ref",
+              "keyValue": "={{ $('Read the click').first().json.ref }}"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "pending"
+            },
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $('Read the click').first().json.chatId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "status": "={{ $('Read the click').first().json.action === 'pick' ? 'added' : 'skipped' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ref",
+              "displayName": "ref",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "candidates",
+              "displayName": "candidates",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "chatId",
+              "displayName": "chatId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1cef8ec2-2220-4b25-b55c-bba0e538c97f",
+      "name": "Mark the choice",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4832,
+        2144
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "521d2d14-28e6-4b1a-9aa2-88a3f619130f",
+              "leftValue": "={{ !!$json.ref }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "85dccbad-f18a-4108-bd07-2e7aee08d13b",
+      "name": "Case still open?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        5088,
+        2144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The row was just \"locked\" by the update (pending -> added or skipped),\n// so two taps on the same button can't add the track twice.\nconst row = $input.first().json;\nconst click = $('Read the click').first().json;\nlet candidates = [];\ntry { candidates = JSON.parse(row.candidates || '[]'); } catch (e) {}\nconst chosen = click.action === 'pick' ? candidates[click.idx] : null;\nreturn [{ json: {\n  action: chosen ? 'pick' : 'skip',\n  uri: chosen?.uri ?? '',\n  chatId: click.chatId,\n  notice: chosen ? `✅ Added: ${chosen.label}` : `⏭ Skipped: ${row.title}`,\n} }];"
+      },
+      "id": "fed86524-5d04-430e-9c0d-9351ae23acb4",
+      "name": "Pick the track",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5328,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c313e926-d6fc-4602-b06e-1cfacda93d7b",
+              "leftValue": "={{ $json.action === 'pick' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8a4ddc56-3e6d-400c-ab92-facb56654466",
+      "name": "Add it?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        5584,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.spotify.com/v1/playlists/{{ $('Find the user').first().json.playlistId }}/items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Get Spotify token').first().json.access_token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ uris: [$('Pick the track').first().json.uri] }) }}",
+        "options": {}
+      },
+      "id": "0eea81f0-5d0d-465c-ae45-ac139de99c08",
+      "name": "Spotify: add (review)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5840,
+        2016
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const c = $('Pick the track').first().json;\nreturn [{ json: { chatId: c.chatId, notice: c.notice } }];"
+      },
+      "id": "3bad54b0-5637-478c-9020-31ad45e2d15c",
+      "name": "Context after pick",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6080,
+        2144
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5286a9d5-a22e-4ff4-9b9f-c0b11a0d776f",
+              "name": "chatId",
+              "value": "={{ $('Read the click').first().json.chatId }}",
+              "type": "string"
+            },
+            {
+              "id": "01041ca1-0bc7-454e-9b78-093b8b41e97d",
+              "name": "notice",
+              "value": "This one was already handled.",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1eba775e-649f-4352-8850-9d3f1dc47efe",
+      "name": "Already handled",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        5328,
+        2288
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "review_queue"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "keyValue": "pending"
+            },
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $json.chatId }}"
+            }
+          ]
+        },
+        "limit": 1,
+        "orderBy": true,
+        "orderByDirection": "ASC"
+      },
+      "id": "8d782272-bd2f-4dad-9468-592b40a47dfe",
+      "name": "Next case",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        6336,
+        1936
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// The context (chat + confirmation message) comes from one of these three nodes:\n// only one of them ran in this execution.\nconst ctx = (() => {\n  for (const name of ['Context after pick', 'Already handled', 'Command chat']) {\n    try { return $(name).first().json; } catch (e) { /* that node didn't run */ }\n  }\n  return {};\n})();\n\nconst row = $input.first().json;          // the next pending case, or empty\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst short = (s, n = 40) => (s.length > n ? s.slice(0, n - 1) + '…' : s);\nconst notice = ctx.notice ? esc(ctx.notice) + '\\n\\n' : '';\n\nif (!row.ref) {\n  return [{ json: { chatId: ctx.chatId, hasCase: false, text: notice + 'Nothing left to review.' } }];\n}\n\nlet candidates = [];\ntry { candidates = JSON.parse(row.candidates || '[]').slice(0, 3); } catch (e) {}\nconst lines = candidates.map((c, i) => `${i + 1}. ${esc(c.label)}`).join('\\n');\n// Three candidate buttons (a dead \"—\" button if Spotify offered fewer) + \"None of these\".\nconst btn = i => candidates[i]\n  ? { t: `${i + 1}. ${short(candidates[i].label)}`, d: `ok|${row.ref}|${i}` }\n  : { t: '—', d: `xx|${row.ref}` };\n\nreturn [{ json: {\n  chatId: ctx.chatId,\n  hasCase: true,\n  text: `${notice}🔎 <b>${esc(row.title)}</b>\\nSpotify suggests:\\n${lines}`,\n  b1t: btn(0).t, b1d: btn(0).d, b2t: btn(1).t, b2d: btn(1).d, b3t: btn(2).t, b3d: btn(2).d,\n  skipData: `no|${row.ref}`,\n} }];"
+      },
+      "id": "2ed39414-bff1-4e2f-95dc-d77e5cd481d3",
+      "name": "Build the review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6576,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "e1ec3070-7f2c-43ef-a5ba-661966e01f39",
+              "leftValue": "={{ $json.hasCase }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1b75dc55-d65e-4750-aa88-35853105096c",
+      "name": "Case to review?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        6832,
+        1936
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.b1t }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.b1d }}"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.b2t }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.b2d }}"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.b3t }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.b3d }}"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "None of these",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.skipData }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "a216b583-de83-47d6-b4c8-a19417479da7",
+      "name": "Send the case",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        7088,
+        1840
+      ],
+      "webhookId": "428bb96f-8e49-46ed-a8f0-914a2e6c9d55",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "5fef3078-73b7-4156-be14-8edebdf0f674",
+      "name": "Send: nothing left",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        7088,
+        2016
+      ],
+      "webhookId": "1b8416d8-7651-4575-a474-e712de90c2eb",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "212fcc9b-b89b-4cc9-b171-dec9439dd3e8",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        144,
+        1072
+      ],
+      "webhookId": "48642c48-49a9-4890-9964-8162217f3139",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "path": "spotify-callback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4931320a-1a9e-4736-a41e-40cdf204a59e",
+      "name": "Spotify redirect",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        144,
+        1872
+      ],
+      "webhookId": "eefb49cc-60c5-4606-a114-60b92e407b5a"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7d491afd-a90c-4839-8c18-f8f3049f50dd",
+              "name": "clientId",
+              "value": "5caa7ce9fa8941879f12a821dd5ffd50",
+              "type": "string"
+            },
+            {
+              "id": "02f3f25b-932c-4c56-8eca-99f3ba0d4908",
+              "name": "redirectUri",
+              "value": "https://kenzgueddas.app.n8n.cloud/webhook/spotify-callback",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "5068604c-9715-44e3-a340-a7cf6d7e307c",
+      "name": "App settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        416,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "2ded4a91-06cc-41de-a87b-f409bd05161e",
+              "leftValue": "={{ $json.headers === undefined }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9c4b0353-1311-45cd-af64-1a8369d5c73f",
+      "name": "Telegram event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        672,
+        1472
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Reads the Telegram event (a normal message, a button click OR a screenshot) and keeps what I need.\nconst ev = $('Telegram Trigger').first().json;\nconst click = ev.callback_query;\nconst msg = ev.message || {};\nconst chatId = String(click?.message?.chat?.id ?? click?.from?.id ?? msg.chat?.id ?? '');\n\n// A screenshot arrives as \"photo\" (several sizes: I take the biggest, the last one)\n// or as a \"document\" when it is sent as a file without compression.\nconst photos = Array.isArray(msg.photo) ? msg.photo : [];\nconst doc = msg.document && String(msg.document.mime_type || '').startsWith('image/') ? msg.document : null;\nconst photoId = photos.length ? photos[photos.length - 1].file_id : (doc ? doc.file_id : '');\n\nreturn [{ json: {\n  chatId,\n  isClick: !!click,\n  text: click ? '' : String(msg.text ?? ''),\n  hasPhoto: !click && !!photoId,\n  photoId,\n} }];"
+      },
+      "id": "98119646-c931-46b3-a59a-234709dfb68e",
+      "name": "Who is writing?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "users"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $json.chatId }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "f8f37cc8-4d8a-46c1-afbe-cf35182e9010",
+      "name": "Find the user",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1168,
+        1072
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// The \"brain\" of the front door: where does this event go?\n// It depends on 2 things: what the person sent, and how far they got in the setup.\n//   step \"none\"         = I don't know this person yet\n//   step \"connecting\"   = they got a Spotify link but didn't finish\n//   step \"need_playlist\"= Spotify is connected, I still need the playlist link\n//   step \"ready\"        = everything is set, they can send YouTube links\nconst who = $('Who is writing?').first().json;\nconst user = $input.first().json;              // the person's row in the \"users\" table, or {} if unknown\nconst step = user.step || 'none';\n\n// \"/review@MyBot blabla\" -> \"/review\"\nconst text = who.text.trim();\nconst cmd = text.startsWith('/') ? text.split(/\\s/)[0].split('@')[0].toLowerCase() : '';\n\nlet route, action = '';\nif (cmd === '/disconnect') {\n  route = 'disconnect';\n} else if (cmd === '/connect') {\n  route = 'connect';\n} else if (step === 'none' || step === 'connecting') {\n  route = 'connect';\n} else if (step === 'need_playlist') {\n  if (who.isClick || cmd) { route = 'ask_playlist'; }\n  else { route = 'spotify'; action = 'playlist_link'; }\n} else {                                        // step === 'ready'\n  if (cmd === '/start' || cmd === '/help') route = 'help';\n  else if (cmd === '/playlist') route = 'change_playlist';\n  else if (cmd === '/review') route = 'review';\n  else { route = 'spotify'; action = who.isClick ? 'click' : (who.hasPhoto ? 'photo' : 'link'); }\n}\n\n// playlist name made safe for a Telegram HTML message\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nreturn [{ json: { route, action, chatId: who.chatId, playlistName: esc(user.playlistName) } }];"
+      },
+      "id": "1a7c96da-f999-4a06-bc6b-cb4257250aaa",
+      "name": "Decide route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "7ea7367f-ead4-47bd-99ff-2a6d7d736ffa",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "connect",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Connect"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "026940d8-d374-4d19-ae96-e8b9e3374285",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "disconnect",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Disconnect"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "25726c48-a181-42c2-9d66-f7330f6e0ab0",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Help"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "080a4e23-db6f-4128-9e2f-738aeb1bb0c0",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "change_playlist",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Change playlist"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "affb8c15-6582-4c62-aab8-6fa7b22463ef",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "ask_playlist",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Ask for playlist"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "e18b4bc7-fc80-4c0f-8232-1f9326a97e28",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "review",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "/review"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "b4b8304a-9d2d-4d71-a004-181e4a5becc1",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "spotify",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Needs Spotify"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f5ec1f2b-b527-404d-8ad8-03915ee71ee2",
+      "name": "Which action?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1648,
+        1072
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Builds the personal Spotify login link for this person.\nconst app = $('App settings').first().json;\nconst who = $('Who is writing?').first().json;\n\nif (!app.clientId || !app.redirectUri || /PASTE|YOUR-INSTANCE/.test(app.clientId + app.redirectUri)) {\n  throw new Error('Open the \"App settings\" node and fill in the Spotify Client ID and the redirect URL.');\n}\n\n// \"state\" = a random one-time code. It comes back in the redirect, and that's how\n// I know which Telegram chat the Spotify answer belongs to.\nconst rand = () => {\n  try { return crypto.randomUUID().replace(/-/g, ''); }\n  catch (e) { return Array.from({ length: 4 }, () => Math.random().toString(36).slice(2)).join(''); }\n};\nconst state = rand();\n\nconst enc = encodeURIComponent;\nconst url = 'https://accounts.spotify.com/authorize?' + [\n  'response_type=code',\n  'client_id=' + enc(app.clientId),\n  'scope=' + enc('playlist-read-private playlist-modify-public playlist-modify-private'),  // only what I need\n  'redirect_uri=' + enc(app.redirectUri),\n  'state=' + state,\n  'show_dialog=true',\n].join('&');\n\nconst esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');\nconst text = [\n  '👋 Hi! Before I can fill your Spotify playlist I need your OK (one time only).',\n  '',\n  `1. Tap this link: <a href=\"${esc(url)}\">Connect my Spotify</a>`,\n  '2. Log in to Spotify and press \"Agree\"',\n  '3. Come back here: I will ask you for your playlist link',\n  '',\n  'I never see your password, and you can stop any time with /disconnect.',\n  'If Spotify shows an error, the owner of this bot has to add your Spotify email first.',\n].join('\\n');\n\nreturn [{ json: { chatId: who.chatId, state, stateAt: String(Date.now()), text } }];"
+      },
+      "id": "9e590703-92c6-4486-a5ac-17549086e4fb",
+      "name": "Build the connect link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "users"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $json.chatId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chatId": "={{ $json.chatId }}",
+            "step": "connecting",
+            "oauthState": "={{ $json.state }}",
+            "stateAt": "={{ $json.stateAt }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "chatId",
+              "displayName": "chatId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "oauthState",
+              "displayName": "oauthState",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stateAt",
+              "displayName": "stateAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "refreshToken",
+              "displayName": "refreshToken",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistId",
+              "displayName": "playlistId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistName",
+              "displayName": "playlistName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5ebd32d7-0244-4140-8526-f0eb3a09ddc3",
+      "name": "Start connection",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2176,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Build the connect link').first().json.chatId }}",
+        "text": "={{ $('Build the connect link').first().json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "8c761a06-b86f-499a-8492-aa3213a6600a",
+      "name": "Send: connect link",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2416,
+        672
+      ],
+      "webhookId": "21e3d0b1-f02a-41a4-92cc-5e04dd12b3e5",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "users"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $('Who is writing?').first().json.chatId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5417c8b8-0744-4aee-b570-bbe08924618b",
+      "name": "Forget user",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1936,
+        832
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "review_queue"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $('Who is writing?').first().json.chatId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8dcc9427-cace-4b61-abcb-db585cee68bd",
+      "name": "Forget review cases",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2176,
+        832
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Who is writing?').first().json.chatId }}",
+        "text": "Done: I deleted your Spotify connection and everything I kept about you.\n\nTo also remove my access on Spotify's side: spotify.com/account/apps, then \"Remove access\".\n\nSend /connect if you want to come back.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "a1ba6b65-8edb-4526-88a0-63260d1de061",
+      "name": "Send: disconnected",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2416,
+        832
+      ],
+      "webhookId": "f069f3a7-bad9-4c2d-b0a1-773f1f92d56b",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Decide route').first().json.chatId }}",
+        "text": "=You're connected ✅\nPlaylist: <b>{{ $('Decide route').first().json.playlistName }}</b>\n\nSend me a YouTube link (a video or a playlist), or a screenshot of a playlist, and I add the tracks.\n\n/review: pick the titles I wasn't sure about\n/playlist: change the playlist\n/disconnect: delete my data",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "8667d0d6-279a-46b8-b6aa-e5f852142d50",
+      "name": "Send: help",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1936,
+        976
+      ],
+      "webhookId": "83f8b1a8-59d7-4a34-9eba-ec5ce6cf426e",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "users"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $('Who is writing?').first().json.chatId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "step": "need_playlist"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "chatId",
+              "displayName": "chatId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "oauthState",
+              "displayName": "oauthState",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stateAt",
+              "displayName": "stateAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "refreshToken",
+              "displayName": "refreshToken",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistId",
+              "displayName": "playlistId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistName",
+              "displayName": "playlistName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e6306b72-f26d-4ed4-9512-0ce98a57f979",
+      "name": "Wait for a new playlist",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1936,
+        1152
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Who is writing?').first().json.chatId }}",
+        "text": "Send me the link of the Spotify playlist I should fill.\n\nIn Spotify: open the playlist, tap ⋯, then Share, then Copy link. It has to be a playlist you created yourself.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "d1c8a4f7-e728-422c-8e5f-c815e79ef05d",
+      "name": "Send: ask for playlist",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2320,
+        1088
+      ],
+      "webhookId": "95f74813-cd73-4a61-b494-314fdb55e116",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://accounts.spotify.com/api/token",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "refresh_token"
+            },
+            {
+              "name": "refresh_token",
+              "value": "={{ $('Find the user').first().json.refreshToken }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6f536bcf-3054-4cb5-8569-3fd17eb762d1",
+      "name": "Get Spotify token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1936,
+        1328
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "CTzr0y12iylb2Kd7",
+          "name": "Unnamed credential"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c77ec85b-7587-4664-864b-8c3a31883250",
+              "leftValue": "={{ !!$json.access_token }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6a9a307a-5cf8-4882-919b-5cd20ddcaa47",
+      "name": "Token ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2176,
+        1328
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "users"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $('Who is writing?').first().json.chatId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "refreshToken": "={{ $('Get Spotify token').first().json.refresh_token || $('Find the user').first().json.refreshToken }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "chatId",
+              "displayName": "chatId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "oauthState",
+              "displayName": "oauthState",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stateAt",
+              "displayName": "stateAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "refreshToken",
+              "displayName": "refreshToken",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistId",
+              "displayName": "playlistId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistName",
+              "displayName": "playlistName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2b7da04-0975-45b5-9cb0-9e28f44c7f80",
+      "name": "Save refresh token",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2464,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Who is writing?').first().json.chatId }}",
+        "text": "I can't use your Spotify connection right now (it may have expired or been removed). Try again, and if it keeps failing send /connect to link it again.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "6c469426-4958-4cec-91c2-ba3620705d25",
+      "name": "Send: reconnect",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2432,
+        1616
+      ],
+      "webhookId": "671ec851-19b8-4426-b7c6-d4e99dccbaee",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "2ab6dbb4-f340-4037-8e56-fd7efacf89ac",
+                    "leftValue": "={{ $('Decide route').first().json.action }}",
+                    "rightValue": "click",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Button click"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "b8df231d-88a8-4c9f-b8ff-69f0e66be97a",
+                    "leftValue": "={{ $('Decide route').first().json.action }}",
+                    "rightValue": "playlist_link",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Playlist link"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "0928301d-a6e5-4660-af20-1c969b89cd87",
+                    "leftValue": "={{ $('Decide route').first().json.action }}",
+                    "rightValue": "link",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "YouTube link"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "944f37d1-c5c2-46da-a56d-8cc298729e77",
+                    "leftValue": "={{ $('Decide route').first().json.action }}",
+                    "rightValue": "photo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Screenshot"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "837d3060-a7ad-4012-8aea-f8843a17eb0b",
+      "name": "What to do?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        2400,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "users"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "oauthState",
+              "keyValue": "={{ $('Spotify redirect').first().json.query?.state || 'no-state' }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "id": "62ae4a77-dea0-4a48-9b4c-09e1b8ce9fe5",
+      "name": "Find who asked",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        1920
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Spotify just sent the person back to my webhook with ?code=...&state=...\n// Is it really one of my users, with a link I created recently?\nconst q = $('Spotify redirect').first().json.query || {};\nconst row = $input.first().json;               // the row that owns this \"state\", or {} if none\nconst fresh = Number(row.stateAt) > 0 && (Date.now() - Number(row.stateAt)) < 30 * 60 * 1000;   // 30 minutes\n\nconst ok = !!(q.code && q.state && row.chatId && row.oauthState === q.state && row.step === 'connecting' && fresh);\nreturn [{ json: { ok, code: q.code || '', chatId: ok ? String(row.chatId) : '' } }];"
+      },
+      "id": "3d4bb756-881a-4244-9353-cab3fce2aaee",
+      "name": "Check the callback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        1920
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "b7364129-a479-4337-83d2-e9104c47c03e",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7d34a7a0-1e57-406f-b39c-a3e39fa7f87b",
+      "name": "Callback valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        1920
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://accounts.spotify.com/api/token",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "grant_type",
+              "value": "authorization_code"
+            },
+            {
+              "name": "code",
+              "value": "={{ $json.code }}"
+            },
+            {
+              "name": "redirect_uri",
+              "value": "={{ $('App settings').first().json.redirectUri }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a2185a0e-e28a-4e72-a00f-c5c9f1d932c6",
+      "name": "Exchange code",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1648,
+        1840
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "CTzr0y12iylb2Kd7",
+          "name": "Unnamed credential"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Link expired</title></head><body style=\"font-family:system-ui,sans-serif;text-align:center;padding:48px 20px\"><h1>😕 This link is no longer valid</h1><p>Go back to Telegram and send /connect to get a new one.</p></body></html>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "0c326f92-b5c4-474d-ae74-76653a03aa87",
+      "name": "Page: link expired",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1648,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "db1e6f0a-96d5-457a-b972-95200e56f036",
+              "leftValue": "={{ !!$json.refresh_token }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "93ece3b8-ad0f-4ead-9366-187080a273e8",
+      "name": "Got tokens?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        1840
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Spotify error</title></head><body style=\"font-family:system-ui,sans-serif;text-align:center;padding:48px 20px\"><h1>😕 Spotify said no</h1><p>Nothing was saved. Go back to Telegram and send /connect to try again.</p></body></html>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "207352d5-7e51-49a8-ba70-bed39fef2344",
+      "name": "Page: failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2128,
+        2032
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "users"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $('Check the callback').first().json.chatId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "refreshToken": "={{ $('Exchange code').first().json.refresh_token }}",
+            "step": "need_playlist",
+            "oauthState": "",
+            "stateAt": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "chatId",
+              "displayName": "chatId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "oauthState",
+              "displayName": "oauthState",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stateAt",
+              "displayName": "stateAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "refreshToken",
+              "displayName": "refreshToken",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistId",
+              "displayName": "playlistId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistName",
+              "displayName": "playlistName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1631178f-42cf-4b55-bda7-2d873bb5afee",
+      "name": "Save connection",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2128,
+        1824
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Spotify connected</title></head><body style=\"font-family:system-ui,sans-serif;text-align:center;padding:48px 20px\"><h1>✅ Spotify connected</h1><p>You can close this tab and go back to Telegram.</p></body></html>",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "db71a36d-7ef7-43e5-956d-42a2ef8471cd",
+      "name": "Page: success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2448,
+        1776
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Check the callback').first().json.chatId }}",
+        "text": "✅ Spotify is connected!\n\nSend me the link of the Spotify playlist I should fill.\n\nIn Spotify: open the playlist, tap ⋯, then Share, then Copy link. It has to be a playlist you created yourself.",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "7f3a7068-95ee-4e22-b88a-5ce3770a7310",
+      "name": "Send: connected",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2448,
+        1968
+      ],
+      "webhookId": "205e3676-3195-4e6c-8728-179f73f2ecf9",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Finds the playlist id in what the person sent. Two usual forms:\n//   https://open.spotify.com/playlist/3QNjy2ijyRhpqybVATe1qP?si=...\n//   spotify:playlist:3QNjy2ijyRhpqybVATe1qP\nconst text = String($('Who is writing?').first().json.text || '');\nconst m = text.match(/playlist[\\/:]([A-Za-z0-9]{22})/);\nreturn [{ json: { ok: !!m, playlistId: m ? m[1] : '' } }];"
+      },
+      "id": "26eb8948-b2c7-463b-82f0-3259dfd217f4",
+      "name": "Read the playlist link",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        2672
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "fc496777-0946-49b8-88c1-b8a3f24113c1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "36511e89-af15-46eb-9dd3-7e00b4286bcb",
+      "name": "Playlist link ok?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1168,
+        2672
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Who is writing?').first().json.chatId }}",
+        "text": "That doesn't look like a Spotify playlist link 🤔\n\nIn Spotify: open your playlist, tap ⋯, then Share, then Copy link, and send it here. It looks like https://open.spotify.com/playlist/...",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "878ae8c5-5f26-424e-a2af-a4cdf8eeb289",
+      "name": "Send: bad playlist link",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1408,
+        2800
+      ],
+      "webhookId": "73e85561-6f10-4cf0-907d-faa005e96ee0",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.spotify.com/v1/me",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Get Spotify token').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8d1e521f-ccff-42c3-a2df-b0dfa55758ae",
+      "name": "Spotify: who am I",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1408,
+        2640
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.spotify.com/v1/playlists/{{ $('Read the playlist link').first().json.playlistId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Get Spotify token').first().json.access_token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "40166756-ed00-4b64-a54e-29c28f2e9b24",
+      "name": "Spotify: playlist info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1648,
+        2640
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Is this playlist usable? It has to belong to the person.\n// (Spotify only lets my app change playlists of the user who logged in.)\nconst link = $('Read the playlist link').first().json;\nconst me = $('Spotify: who am I').first().json;\nconst pl = $input.first().json;\n\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst fail = message => [{ json: { ok: false, message } }];\n\nif (me.error || !me.id) return fail(\"Spotify didn't answer. Try again in a minute.\");\nif (pl.error || !pl.id) return fail(\"I can't open that playlist. Check the link, and make sure it is a playlist you created yourself.\");\nif (pl.owner?.id && pl.owner.id !== me.id) {\n  return fail('That playlist belongs to someone else. I can only fill a playlist you created: make your own one (or copy it) and send me its link.');\n}\n\nconst name = pl.name || 'your playlist';\nreturn [{ json: { ok: true, playlistId: link.playlistId, playlistName: name, nameHtml: esc(name) } }];"
+      },
+      "id": "065afc10-f168-4714-b867-69551613e33c",
+      "name": "Check the playlist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1888,
+        2640
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c9be2d6b-e997-4a36-b2fc-419fac1b80aa",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c6ffe5ac-6408-4ba4-a97c-b24222bbcfc2",
+      "name": "Playlist usable?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        2128,
+        2640
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "users"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chatId",
+              "keyValue": "={{ $('Who is writing?').first().json.chatId }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "playlistId": "={{ $('Check the playlist').first().json.playlistId }}",
+            "playlistName": "={{ $('Check the playlist').first().json.playlistName }}",
+            "step": "ready"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "chatId",
+              "displayName": "chatId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "step",
+              "displayName": "step",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "oauthState",
+              "displayName": "oauthState",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "stateAt",
+              "displayName": "stateAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "refreshToken",
+              "displayName": "refreshToken",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistId",
+              "displayName": "playlistId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "playlistName",
+              "displayName": "playlistName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d7b50081-1d14-43fb-b164-0cbd07113fc1",
+      "name": "Save playlist",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2368,
+        2576
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Who is writing?').first().json.chatId }}",
+        "text": "=✅ All set! I'll fill <b>{{ $('Check the playlist').first().json.nameHtml }}</b>.\n\nSend me a YouTube link (a video or a playlist).\n\n/review: pick the titles I wasn't sure about\n/playlist: change the playlist\n/disconnect: delete my data",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "01f735ab-45be-4ad4-9d3c-9c807b70d4e9",
+      "name": "Send: ready",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2608,
+        2576
+      ],
+      "webhookId": "e971f2f5-9eb6-4728-a500-e86e05377225",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Who is writing?').first().json.chatId }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "ec2301ce-e070-4b69-9fc8-61f8ff0811ea",
+      "name": "Send: playlist refused",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2368,
+        2736
+      ],
+      "webhookId": "92569bab-b0e0-4633-aec3-2e4c03b9e237",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "table",
+        "operation": "create",
+        "tableName": "users",
+        "columns": {
+          "column": [
+            {
+              "name": "chatId"
+            },
+            {
+              "name": "step"
+            },
+            {
+              "name": "oauthState"
+            },
+            {
+              "name": "stateAt"
+            },
+            {
+              "name": "refreshToken"
+            },
+            {
+              "name": "playlistId"
+            },
+            {
+              "name": "playlistName"
+            }
+          ]
+        },
+        "options": {
+          "createIfNotExists": true
+        }
+      },
+      "id": "4759bdba-96bd-444d-bf3b-d966bc7d5afe",
+      "name": "Create users table",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        896,
+        208
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "31963c45-d799-4b83-8672-a84771991233",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        1024,
+        3360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns the Error Trigger data into a readable message.\nconst CHAT_ID = '8642255457';   // my chat id: the alert lands in my conversation with the bot\n\nconst d = $input.first().json;\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst escAttr = s => esc(s).replace(/\"/g, '&quot;');\nconst cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);\n\nconst wfName = d.workflow?.name ?? 'unknown workflow';\nconst isTrigger = !d.execution && !!d.trigger;      // the trigger itself failed (e.g. Telegram webhook)\nconst err = d.execution?.error ?? d.trigger?.error ?? {};\nconst message = typeof err === 'string' ? err : (err.message ?? 'no message');\nconst detail = err.description && err.description !== message ? err.description : '';\nconst node = isTrigger ? 'the trigger' : (d.execution?.lastNodeExecuted ?? 'unknown');\nconst url = d.execution?.url;\nlet when;\ntry { when = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Paris' }); }\ncatch (e) { when = new Date().toISOString(); }\n\nconst lines = [\n  '⚠️ <b>Error in a workflow</b>',\n  `<b>Workflow:</b> ${esc(wfName)}`,\n  `<b>Failed node:</b> ${esc(node)}`,\n  `<b>Message:</b> ${esc(cut(String(message), 500))}`,\n];\nif (detail) lines.push(`<b>Details:</b> ${esc(cut(String(detail), 300))}`);\nif (url) lines.push(`<b>Run:</b> <a href=\"${escAttr(url)}\">open in n8n</a>`);\nlines.push(`<i>${esc(when)}</i>`);\n\nreturn [{ json: { chatId: CHAT_ID, text: lines.join('\\n') } }];"
+      },
+      "id": "25584e2b-f5da-4ee7-b344-5f43a188fe7e",
+      "name": "Write the alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        3360
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "1fdff1ff-51a2-4817-87c2-7db0826be68e",
+      "name": "Send the alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        2064,
+        3360
+      ],
+      "webhookId": "2ea6d0cc-0d1b-4d19-87e5-b64683c8f993",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 🛠 Before the first test \n\n**1. Spotify app** (developer.spotify.com): add the Redirect URI = the **Production URL** of the *Spotify redirect* node. Then add each tester's Spotify email in *User management* (5 people max).\n\n**2. Fill _App settings_**: my Client ID + the same Production URL.\n\n**3. Credentials:** Telegram and YouTube are already linked. NEW: a *Basic Auth* credential (user = Client ID, password = Client Secret). Pick it in **Get Spotify token** AND **Exchange code**.\n\n**4. Tables:** open **Create users table**, hit *Execute step*. Same for **Create review table**.\n\n**5. Publish**, then send /start to the bot.",
+        "height": 480,
+        "width": 760,
+        "color": 5
+      },
+      "id": "9b652c2c-3ab6-4b89-9a86-14b1d7797b9c",
+      "name": "Note A",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        16,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ① Front door (Telegram)\nEvery message or click goes through the same questions:\n**Who is writing?** → **Find the user** (their row in the `users` table) → **Decide route**.\n\nThe route depends on how far the person got: `none / connecting / need_playlist / ready`.\n\n**Which action?** sends them to: connect link, /disconnect, help, playlist question, /review, or \"needs Spotify\".\n\nWhen Spotify is needed, **Get Spotify token** swaps the person's saved *refresh token* for a 1-hour *access token*. If that fails, I ask them to /connect again.",
+        "height": 1040,
+        "width": 1900
+      },
+      "id": "86fc77db-e894-4be5-a56a-beccfa0fe2a8",
+      "name": "Note B",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        832,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ② Spotify login (the redirect)\nAfter the person says Agree, Spotify sends their browser to my **Spotify redirect** webhook with `code` and `state`.\n\n**Find who asked**: the `state` (a random one-time code) tells me which Telegram chat it was.\n**Check the callback**: found + still fresh (30 min) + not used yet.\n**Exchange code**: swaps the `code` for tokens (my app's Client ID + Secret are in the Basic Auth credential).\n**Save connection**: stores the *refresh token*, wipes the `state` so the link works only once.\n\nThe person sees a small web page and gets a Telegram message asking for the playlist.",
+        "height": 560,
+        "width": 1800,
+        "color": 7
+      },
+      "id": "e6a98635-0b2d-40bf-99a6-721aeabb0e9b",
+      "name": "Note C",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        896,
+        1712
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ③ Playlist step\nThe person sends a Spotify playlist link. I read its id, then ask Spotify two things with THEIR token: who is this user (`/me`), and what is this playlist.\n\n**Check the playlist**: it has to belong to them (the app can only change their own playlists). If yes, I save `playlistId` and the step becomes `ready`.",
+        "height": 520,
+        "width": 1900,
+        "color": 6
+      },
+      "id": "2e338ee5-87b3-4f8c-ad0a-583e5712bcbf",
+      "name": "Note D",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        896,
+        2464
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ④ Is the link usable?\n**Config & message**: puts the text, the chat id and THIS person's playlist id in one place.\n\n**Parse link** (Code): spots a YouTube video (`watch?v=`, `youtu.be/`, `shorts/`), a YouTube playlist (`playlist?list=`) or a SoundCloud track, and grabs the id or the URL.\n\n**Valid link?**: if not, the bot sends the usage message instead of crashing.\n\n**Video or playlist?**: each kind has its own source.",
+        "height": 760,
+        "width": 1184,
+        "color": 5
+      },
+      "id": "75ff893d-95fc-4c7d-9b4a-0f282c725c3c",
+      "name": "Note E",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3664,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑤ YouTube (+Soundcloud)\n**Single video**: the oEmbed endpoint gives the title as JSON, no key needed.\n\n**Playlist**: the official *playlistItems* API, 50 videos per page. The node follows `nextPageToken` by itself. Safety cap: 2 pages = **100 videos**.\n\n**Extract titles** reads both formats.\n\n**SoundCloud** (one track): the oEmbed endpoint gives `Track by Artist`. *SoundCloud to title* rewrites it as `Artist - Track` so everything after works unchanged. Playlists (`/sets/`) aren't supported.",
+        "height": 900,
+        "width": 460,
+        "color": 6
+      },
+      "id": "e7a1dbf4-a336-49e9-9cbf-a092baa743a6",
+      "name": "Note F",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4896,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑥ The core of the project: a sub-workflow\n**Add the token**: puts the person's Spotify access token on every title.\n\n**Resolve tracks** (Execute Workflow): sends all the titles to the sub-workflow *Resolve tracks* and gets one answer per title back.\n\nInside the sub-workflow: **Clean titles** (removes (Official Video), [4K], ft., emojis, keeps (Remix)/(Live)), **Spotify: search** (10 candidates) and **Check the match** (Spotify *never* returns zero results, so a candidate needs its artist in the title AND its track name to match).\n\nYouTube and SoundCloud both end up here.",
+        "height": 680,
+        "width": 700,
+        "color": 4
+      },
+      "id": "48fe3b3b-96fc-44c0-b97c-cc812956ff20",
+      "name": "Note G",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        5424,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑦ Dedup and add\n**Read playlist** only runs once (Settings > *Execute Once*) and follows the `next` link of each page of 50 tracks (safety cap: 40 pages = 2000 tracks).\n\n**Prepare additions** drops what's already there and writes the summary. If the playlist can't be read, it adds nothing and says so.\n\n**Anything to add?**: if not, jump straight to the reply.\n\n**Spotify: add** sends ALL the tracks in one request (`/items`, a list of `spotify:track:...`).",
+        "height": 680,
+        "width": 1180,
+        "color": 5
+      },
+      "id": "c02985b4-c5a0-40b5-8067-1b07931367d6",
+      "name": "Note H",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        6176,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑧ Reply\nOne summary message, whatever the branch (*Execute Once*). If it fails to send, the error alert goes off.",
+        "height": 680,
+        "width": 320,
+        "color": 7
+      },
+      "id": "8474faba-f7ef-4e4e-81dd-9f66858b927a",
+      "name": "Note I",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        7424,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑨ Review queue (1/2): save\nRefused titles that look like `Artist - Title` go in the `review_queue` data table with Spotify's 3 best candidates.\n\n**New case?** only lets through titles I don't know yet, so a case I already handled never comes back.\n\nMixes (no `Artist - Title`) aren't saved: Spotify has nothing relevant to offer for them.",
+        "height": 330,
+        "width": 780,
+        "color": 7
+      },
+      "id": "92dbe103-836b-4fd1-9037-8df5a8728cdc",
+      "name": "Note J",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        6656,
+        1264
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## ⑩ Review queue (2/2): /review and buttons\nTwo more events reach the front door: the **/review** command and a **button click**. **Which action?** and **What to do?** sort them.\n\n**Mark the choice** locks the row (pending to added or skipped) BEFORE adding anything, so a double tap can't add the track twice. It also checks the chat id: nobody can answer another person's case.\n\nButtons: `ok|ref|n` adds candidate n to the person's CURRENT playlist, `no|ref` skips. After each choice the next case shows up.\n\nOnly works with the workflow **published**.",
+        "height": 640,
+        "width": 3300,
+        "color": 6
+      },
+      "id": "8648a7c6-abcb-4126-99f0-75379e822fab",
+      "name": "Note K",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        4000,
+        1792
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# ⑪ Error alert\nIf a node crashes during a **real run**, n8n reruns this workflow from the **Error Trigger** only. I get a Telegram message (my chat id is in *Write the alert*) with the workflow, the failing node, the error and a link to the run.\n\n**Test it:** arrow next to Execute workflow > *from Error Trigger*.\n\n**Errors I let through on purpose (no alert):** YouTube (private or deleted video), *Spotify: search* (shown in the summary), *Answer the click*, *Usage message*, the token steps (the person gets a message instead).",
+        "height": 484,
+        "width": 2004,
+        "color": 5
+      },
+      "id": "a77f770c-f1a4-4cf3-a163-7ae5c4355ac6",
+      "name": "Note L",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        832,
+        3168
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://soundcloud.com/oembed",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "format",
+              "value": "json"
+            },
+            {
+              "name": "url",
+              "value": "={{ $json.soundcloudUrl }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "75f2bee9-10bd-4e10-af12-d67e66a224c3",
+      "name": "SoundCloud: track (oEmbed)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4976,
+        1200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// SoundCloud's oEmbed answers with a title like \"Track by Artist\" and an author_name.\n// I rewrite it as \"Artist - Track\", the shape the rest of the workflow already understands.\nreturn $input.all().map(item => {\n  const j = item.json;\n  if (typeof j.title !== 'string') return item;      // error or private track: \"Extract titles\" deals with it\n  const author = String(j.author_name || '').trim();\n  let track = j.title.trim();\n  if (author && track.toLowerCase().endsWith(' by ' + author.toLowerCase())) {\n    track = track.slice(0, -(author.length + 4)).trim();\n  }\n  // some uploads already say \"Artist - Track\" in the title: keep it as it is\n  const title = (author && !/\\s[-–—]\\s/.test(track)) ? `${author} - ${track}` : track;\n  return { json: { title } };\n});"
+      },
+      "id": "7b59516a-8c85-46ff-8386-5bb9feb89c64",
+      "name": "SoundCloud to title",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5216,
+        1200
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "888eea8a-dd9b-407c-a23c-ae619019c149",
+              "name": "accessToken",
+              "value": "={{ $('Get Spotify token').first().json.access_token }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "0e5259b8-307f-4fcd-948c-a84f4e614e75",
+      "name": "Add the token",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        5504,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "XvSPtUp3SE0YqAkv",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/XvSPtUp3SE0YqAkv",
+          "cachedResultName": "Music capture bot — Resolve tracks (with AI)"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "5cb5f204-7e05-4f64-9bf6-80b219da490f",
+      "name": "Resolve tracks",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        5744,
+        880
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "25e1bd7c-9839-479c-bf5c-612ddaeda718",
+              "leftValue": "={{ $json.hasPhoto }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Screenshot?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        3968,
+        944
+      ],
+      "id": "2d948ba9-0c42-4cb7-8b89-03c84f6b548f"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $('Config & message').first().json.photoId }}",
+        "additionalFields": {}
+      },
+      "name": "Get the screenshot",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4224,
+        288
+      ],
+      "id": "6a8d45ea-4810-4573-8785-c7fcbc7c8adc",
+      "webhookId": "810266d4-2880-4959-9c6d-de78fc9c2fb2",
+      "credentials": {
+        "telegramApi": {
+          "id": "kSfOD9wCRcIfa4Qh",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here is the screenshot. List the songs you can read on it.",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "You read a screenshot of a music playlist or a list of videos (YouTube, Spotify, SoundCloud, Apple Music...) and list the songs on it.\nAnswer ONLY with a JSON array, nothing else: [{\"artist\": \"...\", \"track\": \"...\"}]\n\nRules:\n- Use only text that is visible in the image. Never invent or guess a missing word.\n- Skip everything that is not a song: menus, buttons, ads, the playlist name, durations, view counts, dates.\n- If a song has several artists, keep them all in \"artist\".\n- Remove noise like Official Video, Clip officiel, Lyrics, Visualizer, HD.\n- If you cannot read any song, answer []."
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "name": "Read the screenshot",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        4608,
+        288
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "id": "1d827f55-e805-4ab2-a1c0-296120d6273d",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "name": "Gemini (screenshot)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        4608,
+        432
+      ],
+      "id": "699d347a-aff7-4eab-a3fc-e383e9af21f8",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "CfazNEBVvlMJNs4n",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The AI answers with a JSON list: [{ \"artist\": \"...\", \"track\": \"...\" }, ...].\n// Each song becomes \"Artist - Track\", the same shape as a YouTube title,\n// so everything after this node works unchanged.\nlet songs = [];\ntry {\n  const text = String($input.first().json.text ?? $input.first().json.output ?? '');\n  songs = JSON.parse(text.match(/\\[[\\s\\S]*\\]/)[0]);   // the JSON part, even with ```json around it\n} catch (e) { /* no answer or not JSON: nothing readable */ }\n\nconst seen = new Set();\nconst titles = [];\nfor (const s of Array.isArray(songs) ? songs : []) {\n  const artist = String(s?.artist ?? '').trim();\n  const track = String(s?.track ?? '').trim();\n  const rawTitle = artist ? `${artist} - ${track}` : track;\n  if (!track || seen.has(rawTitle.toLowerCase())) continue;   // empty, or twice on the image\n  seen.add(rawTitle.toLowerCase());\n  titles.push({ json: { rawTitle } });\n}\n// Nothing readable: the summary will say so in \"Not found\".\nreturn titles.length ? titles.slice(0, 100) : [{ json: { rawTitle: '' } }];"
+      },
+      "name": "Titles from the screenshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5216,
+        288
+      ],
+      "id": "2cd5ea91-247c-4fb8-8439-48071349da25"
+    },
+    {
+      "parameters": {
+        "content": "## ⑫ Screenshot (new)\nThe person sends a **screenshot of a playlist** instead of a link. Gemini reads the songs on the image, I turn them into `Artist - Track` titles, and they join the normal path at **Add the token**. The AI reads, my rules still decide.",
+        "height": 448,
+        "width": 1760,
+        "color": 6
+      },
+      "id": "1366584a-3f23-4eb2-b1c8-0f601daf34d4",
+      "name": "Note M",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        3664,
+        80
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "App settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spotify redirect": {
+      "main": [
+        [
+          {
+            "node": "App settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "App settings": {
+      "main": [
+        [
+          {
+            "node": "Telegram event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram event?": {
+      "main": [
+        [
+          {
+            "node": "Who is writing?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find who asked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Who is writing?": {
+      "main": [
+        [
+          {
+            "node": "Find the user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find the user": {
+      "main": [
+        [
+          {
+            "node": "Decide route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decide route": {
+      "main": [
+        [
+          {
+            "node": "Which action?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Which action?": {
+      "main": [
+        [
+          {
+            "node": "Build the connect link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Forget user",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send: help",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for a new playlist",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send: ask for playlist",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Command chat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Spotify token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the connect link": {
+      "main": [
+        [
+          {
+            "node": "Start connection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start connection": {
+      "main": [
+        [
+          {
+            "node": "Send: connect link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forget user": {
+      "main": [
+        [
+          {
+            "node": "Forget review cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forget review cases": {
+      "main": [
+        [
+          {
+            "node": "Send: disconnected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for a new playlist": {
+      "main": [
+        [
+          {
+            "node": "Send: ask for playlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Spotify token": {
+      "main": [
+        [
+          {
+            "node": "Token ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token ok?": {
+      "main": [
+        [
+          {
+            "node": "Save refresh token",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "What to do?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send: reconnect",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "What to do?": {
+      "main": [
+        [
+          {
+            "node": "Read the click",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Read the playlist link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Config & message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Config & message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find who asked": {
+      "main": [
+        [
+          {
+            "node": "Check the callback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the callback": {
+      "main": [
+        [
+          {
+            "node": "Callback valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Callback valid?": {
+      "main": [
+        [
+          {
+            "node": "Exchange code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Page: link expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exchange code": {
+      "main": [
+        [
+          {
+            "node": "Got tokens?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Got tokens?": {
+      "main": [
+        [
+          {
+            "node": "Save connection",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Page: failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save connection": {
+      "main": [
+        [
+          {
+            "node": "Page: success",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send: connected",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the playlist link": {
+      "main": [
+        [
+          {
+            "node": "Playlist link ok?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Playlist link ok?": {
+      "main": [
+        [
+          {
+            "node": "Spotify: who am I",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send: bad playlist link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spotify: who am I": {
+      "main": [
+        [
+          {
+            "node": "Spotify: playlist info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spotify: playlist info": {
+      "main": [
+        [
+          {
+            "node": "Check the playlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the playlist": {
+      "main": [
+        [
+          {
+            "node": "Playlist usable?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Playlist usable?": {
+      "main": [
+        [
+          {
+            "node": "Save playlist",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send: playlist refused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save playlist": {
+      "main": [
+        [
+          {
+            "node": "Send: ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Write the alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write the alert": {
+      "main": [
+        [
+          {
+            "node": "Send the alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config & message": {
+      "main": [
+        [
+          {
+            "node": "Screenshot?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse link": {
+      "main": [
+        [
+          {
+            "node": "Valid link?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid link?": {
+      "main": [
+        [
+          {
+            "node": "Video or playlist?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Usage message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video or playlist?": {
+      "main": [
+        [
+          {
+            "node": "YouTube: video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "YouTube: playlist",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "SoundCloud: track (oEmbed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube: video": {
+      "main": [
+        [
+          {
+            "node": "Extract titles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube: playlist": {
+      "main": [
+        [
+          {
+            "node": "Extract titles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract titles": {
+      "main": [
+        [
+          {
+            "node": "Add the token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read playlist": {
+      "main": [
+        [
+          {
+            "node": "Prepare additions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare additions": {
+      "main": [
+        [
+          {
+            "node": "Anything to add?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Split review cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to add?": {
+      "main": [
+        [
+          {
+            "node": "Spotify: add",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spotify: add": {
+      "main": [
+        [
+          {
+            "node": "Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the click": {
+      "main": [
+        [
+          {
+            "node": "Answer the click",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer the click": {
+      "main": [
+        [
+          {
+            "node": "Known action?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Known action?": {
+      "main": [
+        [
+          {
+            "node": "Mark the choice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark the choice": {
+      "main": [
+        [
+          {
+            "node": "Case still open?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Case still open?": {
+      "main": [
+        [
+          {
+            "node": "Pick the track",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Already handled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pick the track": {
+      "main": [
+        [
+          {
+            "node": "Add it?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add it?": {
+      "main": [
+        [
+          {
+            "node": "Spotify: add (review)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Context after pick",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spotify: add (review)": {
+      "main": [
+        [
+          {
+            "node": "Context after pick",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context after pick": {
+      "main": [
+        [
+          {
+            "node": "Next case",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Already handled": {
+      "main": [
+        [
+          {
+            "node": "Next case",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Command chat": {
+      "main": [
+        [
+          {
+            "node": "Next case",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next case": {
+      "main": [
+        [
+          {
+            "node": "Build the review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the review": {
+      "main": [
+        [
+          {
+            "node": "Case to review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Case to review?": {
+      "main": [
+        [
+          {
+            "node": "Send the case",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send: nothing left",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split review cases": {
+      "main": [
+        [
+          {
+            "node": "New case?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New case?": {
+      "main": [
+        [
+          {
+            "node": "Save case",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SoundCloud: track (oEmbed)": {
+      "main": [
+        [
+          {
+            "node": "SoundCloud to title",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SoundCloud to title": {
+      "main": [
+        [
+          {
+            "node": "Extract titles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add the token": {
+      "main": [
+        [
+          {
+            "node": "Resolve tracks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve tracks": {
+      "main": [
+        [
+          {
+            "node": "Read playlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Screenshot?": {
+      "main": [
+        [
+          {
+            "node": "Get the screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the screenshot": {
+      "main": [
+        [
+          {
+            "node": "Read the screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read the screenshot": {
+      "main": [
+        [
+          {
+            "node": "Titles from the screenshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini (screenshot)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Read the screenshot",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Titles from the screenshot": {
+      "main": [
+        [
+          {
+            "node": "Add the token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cc7459a4-80b3-497b-a6e9-5227357ad453",
+  "meta": {
+    "instanceId": "aababc7123e159fb661ffa9f0f44e26dd4e32f9342763a5f721efd914daca9d4"
+  },
+  "nodeGroups": [],
+  "id": "TQCOK0jfx4iWNyzR",
+  "tags": []
+}
