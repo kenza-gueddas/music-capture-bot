@@ -116,10 +116,6 @@ To stop everything: `docker compose down`. My data stays in the Docker volumes.
 
 Spotify limits the number of requests per minute (error 429). If it happens, wait 30 to 60 minutes and use short playlists for tests.
 
-## Screenshots
-
-_(to add: the workflow in n8n, a Telegram conversation, the Spotify playlist, the Executions tab, `docker compose ps`)_
-
 ## Limits and next steps
 
 What does not work yet:
